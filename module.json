@@ -1,4 +1,5 @@
 {
+  "id": "latency-tracker",
   "name": "latency-tracker",
   "title": "Latency Tracker",
   "description": "Shows the latency of connected players next to their names.",
