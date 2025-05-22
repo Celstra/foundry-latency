@@ -1,7 +1,5 @@
 const MODULE_ID = "latency-tracker";
 
-console.log(`[Latency Tracker] Script loaded. User: ${game.user.name}, GM: ${game.user.isGM}`);
-
 Hooks.once("init", () => {
   // Register setting (GM only)
   game.settings.register(MODULE_ID, "showLatency", {
@@ -16,7 +14,8 @@ Hooks.once("init", () => {
 
 Hooks.once("ready", () => {
   if (!game?.user) return;
-
+  
+  console.log(`[Latency Tracker] Script loaded. User: ${game.user.name}, GM: ${game.user.isGM}`);
   // --- Players send their latency to the GM ---
   if (!game.user.isGM) {
     setInterval(() => {
