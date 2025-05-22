@@ -1,0 +1,14 @@
+{
+  "name": "latency-tracker",
+  "title": "Latency Tracker",
+  "description": "Shows the latency of connected players.",
+  "version": "1.0.0",
+  "minimumCoreVersion": "13",
+  "author": "Your Name",
+  "scripts": ["scripts/latency-tracker.js"],
+  "esmodules": [],
+  "styles": [],
+  "socket": false,
+  "manifest": "https://yourdomain.com/foundry-latency/module.json",
+  "download": "https://yourdomain.com/foundry-latency/foundry-latency.zip"
+}
