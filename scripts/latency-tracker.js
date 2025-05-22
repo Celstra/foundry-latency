@@ -1,7 +1,7 @@
 const MODULE_ID = "latency-tracker";
+const PING_INTERVAL = 5000;
 
 Hooks.once("init", () => {
-  // Register setting (GM only)
   game.settings.register(MODULE_ID, "showLatency", {
     name: "Show Player Latency",
     hint: "Display each player's latency next to their name in the player list (GM only).",
@@ -13,33 +13,40 @@ Hooks.once("init", () => {
 });
 
 Hooks.once("ready", () => {
-  if (!game?.user) return;
-  
-  console.log(`[Latency Tracker] Script loaded. User: ${game.user.name}, GM: ${game.user.isGM}`);
-  // --- Players send their latency to the GM ---
-  if (!game.user.isGM) {
-    console.log(`[Latency Tracker] Sending latency: ${game.user.latency}ms from ${game.user.name}`);
-    setInterval(() => {
-      game.socket.emit(`module.${MODULE_ID}`, {
-        userId: game.user.id,
-        latency: game.user.latency ?? null
-      });
-    }, 5000);
-  }
+  if (!game.user) return;
 
-  // --- GM handles latency display ---
+  console.log(`[Latency Tracker] Loaded for ${game.user.name}, GM: ${game.user.isGM}`);
+
+  const latencyMap = new Map();
+
   if (game.user.isGM) {
-    const latencyMap = new Map();
+    // 1. Ping each player
+    setInterval(() => {
+      for (let user of game.users.contents) {
+        if (!user.active || user.id === game.user.id) continue;
 
-    // Receive latency reports from players
+        const timestamp = Date.now();
+        game.socket.emit(`module.${MODULE_ID}`, {
+          type: "ping",
+          to: user.id,
+          from: game.user.id,
+          timestamp,
+        });
+      }
+    }, PING_INTERVAL);
+
+    // 2. Handle pong responses
     game.socket.on(`module.${MODULE_ID}`, (data) => {
-      latencyMap.set(data.userId, data.latency);
+      if (data.type !== "pong" || data.from === game.user.id) return;
+
+      const latency = Date.now() - data.timestamp;
+      latencyMap.set(data.from, latency);
+      console.log(`[Latency Tracker] Pong from ${data.from}: ${latency}ms`);
     });
 
-    // Update display every 5 seconds
+    // 3. Update UI
     setInterval(() => {
-      const showLatency = game.settings.get(MODULE_ID, "showLatency");
-      if (!showLatency) return;
+      if (!game.settings.get(MODULE_ID, "showLatency")) return;
 
       for (let user of game.users.contents) {
         const listItem = document.querySelector(`#players li[data-user-id="${user.id}"]`);
@@ -48,12 +55,10 @@ Hooks.once("ready", () => {
         const nameSpan = listItem.querySelector(".player-name");
         if (!nameSpan) continue;
 
-        // Reset to default name
         nameSpan.textContent = user.name;
 
-        // If latency is available, add it with color
-        if (latencyMap.has(user.id)) {
-          const latency = latencyMap.get(user.id);
+        const latency = latencyMap.get(user.id);
+        if (latency != null) {
           const color = latency < 100 ? "green" : latency < 250 ? "orange" : "red";
 
           const latencySpan = document.createElement("span");
@@ -64,6 +69,17 @@ Hooks.once("ready", () => {
           nameSpan.appendChild(latencySpan);
         }
       }
-    }, 5000);
+    }, PING_INTERVAL);
+  } else {
+    // Player receives ping and sends back pong
+    game.socket.on(`module.${MODULE_ID}`, (data) => {
+      if (data.type !== "ping" || data.to !== game.user.id) return;
+
+      game.socket.emit(`module.${MODULE_ID}`, {
+        type: "pong",
+        from: game.user.id,
+        timestamp: data.timestamp,
+      });
+    });
   }
 });
