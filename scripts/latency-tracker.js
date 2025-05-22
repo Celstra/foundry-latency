@@ -18,6 +18,7 @@ Hooks.once("ready", () => {
   console.log(`[Latency Tracker] Script loaded. User: ${game.user.name}, GM: ${game.user.isGM}`);
   // --- Players send their latency to the GM ---
   if (!game.user.isGM) {
+    console.log(`[Latency Tracker] Sending latency: ${game.user.latency}ms from ${game.user.name}`);
     setInterval(() => {
       game.socket.emit(`module.${MODULE_ID}`, {
         userId: game.user.id,
