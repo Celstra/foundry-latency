@@ -1,31 +1,67 @@
+const MODULE_ID = "latency-tracker";
+
+Hooks.once("init", () => {
+  // Register setting (GM only)
+  game.settings.register(MODULE_ID, "showLatency", {
+    name: "Show Player Latency",
+    hint: "Display each player's latency next to their name in the player list (GM only).",
+    scope: "client",
+    config: true,
+    default: true,
+    type: Boolean
+  });
+});
+
 Hooks.once("ready", () => {
-  if (!game.user.isGM) return; // Only GM sees everyone's latency
+  if (!game?.user) return;
 
-  const LATENCY_UPDATE_INTERVAL = 5000;
-
-  function updatePlayerListLatencies() {
-    const players = game.users.contents.filter(u => u.active);
-
-    for (let player of players) {
-      const listItem = document.querySelector(`#players li[data-user-id="${player.id}"]`);
-      if (!listItem) continue;
-
-      // Clean old latency info if present
-      const nameSpan = listItem.querySelector(".player-name");
-      if (!nameSpan) continue;
-
-      // Remove old latency in parentheses (if present)
-      nameSpan.textContent = nameSpan.textContent.replace(/\s\(\d+ms\)$/, "");
-
-      // Append new latency
-      const latency = player.latency ?? "N/A";
-      nameSpan.textContent += ` (${latency}ms)`;
-    }
+  // --- Players send their latency to the GM ---
+  if (!game.user.isGM) {
+    setInterval(() => {
+      game.socket.emit(`module.${MODULE_ID}`, {
+        userId: game.user.id,
+        latency: game.user.latency ?? null
+      });
+    }, 5000);
   }
 
-  // Initial update
-  updatePlayerListLatencies();
+  // --- GM handles latency display ---
+  if (game.user.isGM) {
+    const latencyMap = new Map();
 
-  // Periodic updates
-  setInterval(updatePlayerListLatencies, LATENCY_UPDATE_INTERVAL);
+    // Receive latency reports from players
+    game.socket.on(`module.${MODULE_ID}`, (data) => {
+      latencyMap.set(data.userId, data.latency);
+    });
+
+    // Update display every 5 seconds
+    setInterval(() => {
+      const showLatency = game.settings.get(MODULE_ID, "showLatency");
+      if (!showLatency) return;
+
+      for (let user of game.users.contents) {
+        const listItem = document.querySelector(`#players li[data-user-id="${user.id}"]`);
+        if (!listItem) continue;
+
+        const nameSpan = listItem.querySelector(".player-name");
+        if (!nameSpan) continue;
+
+        // Reset to default name
+        nameSpan.textContent = user.name;
+
+        // If latency is available, add it with color
+        if (latencyMap.has(user.id)) {
+          const latency = latencyMap.get(user.id);
+          const color = latency < 100 ? "green" : latency < 250 ? "orange" : "red";
+
+          const latencySpan = document.createElement("span");
+          latencySpan.style.color = color;
+          latencySpan.style.marginLeft = "4px";
+          latencySpan.textContent = `(${latency}ms)`;
+
+          nameSpan.appendChild(latencySpan);
+        }
+      }
+    }, 5000);
+  }
 });
