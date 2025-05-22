@@ -3,10 +3,8 @@ Hooks.once("ready", () => {
   const isGM = game.user.isGM;
   console.log(`[Latency Tracker] Loaded for ${currentUser}, GM: ${isGM}`);
 
-  // Store latencies per userId
   const latencyMap = {};
 
-  // Update latency display next to player names
   const updatePlayerList = () => {
     const playerElements = document.querySelectorAll("#players li.player");
     playerElements.forEach((el) => {
@@ -25,30 +23,36 @@ Hooks.once("ready", () => {
   };
 
   if (isGM) {
-    // GM sends pings every 5 seconds
     const sendPing = () => {
       game.users.forEach((user) => {
         if (!user.isGM && user.active) {
           const timestamp = Date.now();
-          // Show placeholder until pong received
           latencyMap[user.id] = "...";
           game.socket.emit("module.latency-tracker", {
             type: "ping",
             userId: user.id,
             timestamp: timestamp,
           });
-          console.log(`[Latency Tracker] Sending ping to ${user.name} (${user.id})`);
+          console.log(`[Latency Tracker] Sent ping to ${user.name} (${user.id}) at ${timestamp}`);
         }
       });
       updatePlayerList();
     };
 
-    // Listen for pongs from players
     game.socket.on("module.latency-tracker", (data) => {
-      if (data.type === "pong" && data.userId && data.timestamp) {
+      if (!data || typeof data !== "object") return;
+
+      if (data.type === "pong") {
+        console.log(`[Latency Tracker] Received pong:`, data);
+
+        if (!data.timestamp || !data.userId) {
+          console.warn("[Latency Tracker] Missing timestamp or userId in pong");
+          return;
+        }
+
         const latency = Date.now() - data.timestamp;
         latencyMap[data.userId] = latency;
-        console.log(`[Latency Tracker] Pong from ${data.userId}: ${latency}ms`);
+        console.log(`[Latency Tracker] Calculated latency for ${data.userId}: ${latency}ms`);
         updatePlayerList();
       }
     });
@@ -57,15 +61,17 @@ Hooks.once("ready", () => {
     sendPing();
     setInterval(sendPing, 5000);
   } else {
-    // Player listens for ping and replies with pong
     game.socket.on("module.latency-tracker", (data) => {
+      if (!data || typeof data !== "object") return;
+
       if (data.type === "ping" && data.userId === game.user.id && data.timestamp) {
+        console.log(`[Latency Tracker] Received ping with timestamp ${data.timestamp}`);
         game.socket.emit("module.latency-tracker", {
           type: "pong",
           userId: game.user.id,
           timestamp: data.timestamp,
         });
-        console.log(`[Latency Tracker] Responded to ping with timestamp ${data.timestamp}`);
+        console.log(`[Latency Tracker] Sent pong from ${game.user.name}`);
       }
     });
   }
