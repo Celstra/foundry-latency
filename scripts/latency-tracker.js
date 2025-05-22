@@ -1,7 +1,6 @@
 Hooks.once("ready", () => {
   const isGM = game.user.isGM;
 
-  // Ping interval in ms
   const PING_INTERVAL = 5000;
 
   const getLatencyColor = (latency) => {
@@ -39,17 +38,15 @@ Hooks.once("ready", () => {
     const updateUserNameWithLatency = (userId, latency) => {
       const color = getLatencyColor(latency);
       const user = game.users.get(userId);
-      const playerList = ui.players.element;
-      const nameElement = playerList.find(`[data-user-id="${userId}"] .player-name`);
-      if (nameElement.length) {
-        nameElement.html(`${user.name} <span style="color:${color}">(${latency}ms)</span>`);
+      const nameElement = document.querySelector(`[data-user-id="${userId}"] .player-name`);
+      if (nameElement) {
+        nameElement.innerHTML = `${user.name} <span style="color:${color}">(${latency}ms)</span>`;
       }
     };
 
     setInterval(sendPing, PING_INTERVAL);
 
   } else {
-    // Respond to GM pings
     game.socket.on("module.latency-tracker", (data) => {
       if (!data || typeof data !== "object") return;
 
