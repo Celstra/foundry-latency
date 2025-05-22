@@ -37,9 +37,27 @@ Hooks.once("init", () => {
     },
   });
 
+  game.settings.register(MODULE_NAME, "trackUnfocused", {
+    name: "Track Tab Unfocused / Alt-Tab",
+    hint: "Show status when player switches browser tab or window (loses focus).",
+    scope: "world",
+    config: true,
+    default: true,
+    type: Boolean,
+  });
+
+  game.settings.register(MODULE_NAME, "trackIdle", {
+    name: "Track Idle (No Input Timeout)",
+    hint: "Show status when player has no keyboard/mouse input for a timeout.",
+    scope: "world",
+    config: true,
+    default: true,
+    type: Boolean,
+  });
+
   game.settings.register(MODULE_NAME, "noInputTimeout", {
-    name: "No input timeout (seconds)",
-    hint: "Time (in seconds) of no mouse/keyboard input before marking inactive",
+    name: "No Input Timeout (seconds)",
+    hint: "Timeout in seconds for idle detection.",
     scope: "world",
     config: true,
     default: 60,
@@ -51,54 +69,43 @@ Hooks.once("init", () => {
     },
   });
 
-  // Internal latency map and status tracking
   game.playerLatencies = {};
-  game.playerStatus = {}; // Track { focused, active } states per player
+  game.playerStatus = {}; // { focused, inactive }
 });
 
 Hooks.once("ready", () => {
-  console.log(`[Player Status Tracker] Ready`);
-
-  // Start GM ping loop
-  if (game.user.isGM) {
-    startGMPingLoop();
-  }
-
-  // Setup listeners
+  if (game.user.isGM) startGMPingLoop();
   setupLatencyReceiver();
   setupFocusAndActivityListeners();
   setupUpdatePlayerListHook();
 });
 
-// --- GM pings players every 5 seconds ---
+// GM ping loop (every 5 seconds)
 function startGMPingLoop() {
-  console.log(`[Player Status Tracker] GM ping loop starting...`);
   setInterval(() => {
     for (let u of game.users.entries) {
-      if (!u[1].active || u[1].id === game.user.id) continue; // Skip self and inactive users
-      sendPingToPlayer(u[1].id);
+      const user = u[1];
+      if (!user.active || user.id === game.user.id) continue;
+      sendPingToPlayer(user.id);
     }
   }, 5000);
 }
 
 function sendPingToPlayer(playerId) {
-  const timestamp = Date.now();
-  // console.log(`[Player Status Tracker] Sent ping to ${playerId} at ${timestamp}`);
   game.socket.emit(`module.${MODULE_NAME}`, {
     type: "ping",
     to: playerId,
-    timestamp,
+    timestamp: Date.now(),
     from: game.user.id,
   });
 }
 
-// --- Players respond to ping ---
+// Players respond to ping with pong
 function setupLatencyReceiver() {
-  game.socket.on(`module.${MODULE_NAME}`, async (data) => {
-    if (data.to !== game.user.id) return; // Only process messages addressed to self
+  game.socket.on(`module.${MODULE_NAME}`, (data) => {
+    if (data.to !== game.user.id) return;
 
     if (data.type === "ping") {
-      // Respond with pong immediately
       game.socket.emit(`module.${MODULE_NAME}`, {
         type: "pong",
         to: data.from,
@@ -107,45 +114,67 @@ function setupLatencyReceiver() {
         pongTime: Date.now(),
       });
     } else if (data.type === "pong" && game.user.isGM) {
-      // GM receives pong from players - calculate latency
       const latency = Date.now() - data.timestamp;
       game.playerLatencies[data.from] = latency;
+      updateUserNameWithLatency();
+    } else if (data.type === "status" && game.user.isGM) {
+      game.playerStatus[data.from] = {
+        focused: data.focused,
+        inactive: data.inactive,
+      };
       updateUserNameWithLatency();
     }
   });
 }
 
-// --- Update player list UI ---
+// Update player list UI with latency and status indicators
 function updateUserNameWithLatency() {
   const playerList = document.querySelectorAll("#players .player-list .player");
+  if (!playerList) return;
+
   playerList.forEach((playerElem) => {
     const userId = playerElem.getAttribute("data-user-id");
     if (!userId) return;
 
-    // Base player name without latency or status
-    const baseName = playerElem.querySelector(".name").textContent.replace(/\s*\(.*?\)\s*$/, "");
+    const baseNameElem = playerElem.querySelector(".name");
+    if (!baseNameElem) return;
 
-    // Build latency display
+    // Strip existing latency and status indicators for clean base
+    let baseName = baseNameElem.textContent.replace(/\s*\(.*?\)\s*| ZZZ$/, "");
+
+    // Latency
     const latency = game.playerLatencies[userId];
     let latencyText = "";
-    if (typeof latency === "number") {
-      latencyText = ` (${latency} ms)`;
-    }
+    if (typeof latency === "number") latencyText = ` (${latency} ms)`;
 
-    // Build status indicators (ZZZ or none)
+    // Status indicators based on enabled tracking options
     const status = game.playerStatus[userId] || {};
     const showZZZ = game.settings.get(MODULE_NAME, "showZZZ");
-    let statusText = "";
-    if (showZZZ && (status.inactive || !status.focused)) {
-      statusText = " ZZZ";
+    const trackUnfocused = game.settings.get(MODULE_NAME, "trackUnfocused");
+    const trackIdle = game.settings.get(MODULE_NAME, "trackIdle");
+
+    let shouldShowZZZ = false;
+    if (showZZZ) {
+      if (
+        (trackUnfocused && status.focused === false) ||
+        (trackIdle && status.inactive === true)
+      ) {
+        shouldShowZZZ = true;
+      }
     }
 
-    // Apply text content update
-    playerElem.querySelector(".name").textContent = baseName + latencyText + statusText;
+    let statusText = shouldShowZZZ ? " ZZZ" : "";
 
-    // Apply line-through styling if enabled
+    // Apply name + latency + status
+    baseNameElem.textContent = baseName + latencyText + statusText;
+
+    // Line-through logic
     const showLine = game.settings.get(MODULE_NAME, "showLineThrough");
-    if (showLine && (status.inactive || !status.focused)) {
+    if (
+      showLine &&
+      ((trackUnfocused && status.focused === false) ||
+        (trackIdle && status.inactive === true))
+    ) {
       let style = game.settings.get(MODULE_NAME, "lineThroughStyle");
       let cssStyle = "line-through";
       switch (style) {
@@ -164,88 +193,47 @@ function updateUserNameWithLatency() {
       playerElem.style.textDecoration = cssStyle;
       playerElem.style.textDecorationColor = "red";
     } else {
-      // Clear styling if no line-through needed
       playerElem.style.textDecoration = "none";
       playerElem.style.textDecorationColor = "inherit";
     }
   });
 }
 
-// --- Focus and Activity Tracking ---
-
+// Focus and activity tracking for players
 function setupFocusAndActivityListeners() {
   if (!game.user.isGM) {
-    // Player side: Track window focus and input activity
-    window.addEventListener("focus", () => {
-      setPlayerFocusStatus(true);
-    });
-    window.addEventListener("blur", () => {
-      setPlayerFocusStatus(false);
-    });
-
-    // Detect keyboard and mouse activity
-    const activityEvents = ["mousemove", "keydown", "mousedown", "touchstart"];
-    activityEvents.forEach((event) => {
-      window.addEventListener(event, () => {
-        setPlayerActiveStatus(true);
-        clearTimeout(game._inactiveTimeout);
-        game._inactiveTimeout = setTimeout(() => {
-          setPlayerActiveStatus(false);
-        }, game.settings.get(MODULE_NAME, "noInputTimeout") * 1000);
+    // Track focus/unfocus if enabled
+    if (game.settings.get(MODULE_NAME, "trackUnfocused")) {
+      window.addEventListener("focus", () => {
+        setPlayerFocusStatus(true);
       });
-    });
-
-    // Initialize activity state
-    setPlayerFocusStatus(document.hasFocus());
-    setPlayerActiveStatus(true);
-  }
-
-  if (game.user.isGM) {
-    // GM side: No local focus needed, but listen for updates from players
-  }
-}
-
-function setPlayerFocusStatus(focused) {
-  game.playerStatus[game.user.id] = game.playerStatus[game.user.id] || {};
-  game.playerStatus[game.user.id].focused = focused;
-  sendStatusUpdateToGM();
-  updateUserNameWithLatency();
-}
-
-function setPlayerActiveStatus(active) {
-  game.playerStatus[game.user.id] = game.playerStatus[game.user.id] || {};
-  game.playerStatus[game.user.id].inactive = !active;
-  sendStatusUpdateToGM();
-  updateUserNameWithLatency();
-}
-
-function sendStatusUpdateToGM() {
-  if (!game.user.isGM) {
-    game.socket.emit(`module.${MODULE_NAME}`, {
-      type: "status",
-      from: game.user.id,
-      focused: game.playerStatus[game.user.id]?.focused,
-      inactive: game.playerStatus[game.user.id]?.inactive,
-    });
-  }
-}
-
-// GM listens for status updates from players
-Hooks.on("socketlib.ready", () => {
-  if (!game.user.isGM) return;
-
-  game.socket.on(`module.${MODULE_NAME}`, (data) => {
-    if (data.type === "status") {
-      game.playerStatus[data.from] = {
-        focused: data.focused,
-        inactive: data.inactive,
-      };
-      updateUserNameWithLatency();
+      window.addEventListener("blur", () => {
+        setPlayerFocusStatus(false);
+      });
+      // Init state
+      setPlayerFocusStatus(document.hasFocus());
+    } else {
+      setPlayerFocusStatus(true);
     }
-  });
-});
 
-// Also update latency/status display when player list changes
-Hooks.on("renderPlayerList", () => {
-  updateUserNameWithLatency();
-});
+    // Track idle if enabled
+    if (game.settings.get(MODULE_NAME, "trackIdle")) {
+      const activityEvents = ["mousemove", "keydown", "mousedown", "touchstart"];
+      activityEvents.forEach((event) => {
+        window.addEventListener(event, () => {
+          setPlayerActiveStatus(true);
+          clearTimeout(game._inactiveTimeout);
+          game._inactiveTimeout = setTimeout(() => {
+            setPlayerActiveStatus(false);
+          }, game.settings.get(MODULE_NAME, "noInputTimeout") * 1000);
+        });
+      });
+      // Init state
+      setPlayerActiveStatus(true);
+    } else {
+      setPlayerActiveStatus(true);
+    }
+  }
+}
+
+function setPlayerFocusStatus
