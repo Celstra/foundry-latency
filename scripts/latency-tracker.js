@@ -5,7 +5,7 @@ Hooks.once("init", () => {
     scope: "world",
     config: true,
     type: Boolean,
-    default: true
+    default: true,
   });
 
   game.settings.register("latency-tracker", "inactivityThreshold", {
@@ -14,7 +14,7 @@ Hooks.once("init", () => {
     scope: "world",
     config: true,
     type: Number,
-    default: 60
+    default: 60,
   });
 
   game.settings.register("latency-tracker", "enableFocusTracking", {
@@ -23,7 +23,67 @@ Hooks.once("init", () => {
     scope: "world",
     config: true,
     type: Boolean,
-    default: true
+    default: true,
+  });
+
+  game.settings.register("latency-tracker", "focusLineStyle", {
+    name: "Focus Lost Line Style",
+    hint: "Line style used to indicate a tab switch or minimize (focus lost).",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      solid: "Solid",
+      dashed: "Dashed",
+      dotted: "Dotted",
+    },
+    default: "solid",
+  });
+
+  game.settings.register("latency-tracker", "focusLineColor", {
+    name: "Focus Lost Line Color",
+    hint: "Line color used to indicate a tab switch or minimize (focus lost).",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "#ff9900",
+  });
+
+  game.settings.register("latency-tracker", "inactivityLineStyle", {
+    name: "Inactivity Line Style",
+    hint: "Line style used to indicate inactivity (no input).",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      solid: "Solid",
+      dashed: "Dashed",
+      dotted: "Dotted",
+    },
+    default: "dotted",
+  });
+
+  game.settings.register("latency-tracker", "inactivityLineColor", {
+    name: "Inactivity Line Color",
+    hint: "Line color used to indicate inactivity (no input).",
+    scope: "world",
+    config: true,
+    type: String,
+    default: "#ff4444",
+  });
+
+  game.settings.register("latency-tracker", "lineThickness", {
+    name: "Line Thickness (px)",
+    hint: "Thickness of the line-through indicating focus or inactivity.",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 2,
+    range: {
+      min: 1,
+      max: 5,
+      step: 1,
+    },
   });
 });
 
@@ -41,6 +101,7 @@ function updateUserDisplay(userId) {
 
   let label = user.name;
 
+  // Show latency for other players only, not GM self
   if (user.id !== game.user.id && typeof data.latency === "number") {
     const color = data.latency < 100 ? "green" : data.latency < 200 ? "orange" : "red";
     label += ` (<span style='color:${color}'>${data.latency}ms</span>)`;
@@ -48,14 +109,22 @@ function updateUserDisplay(userId) {
 
   li.querySelector(".player-name").innerHTML = label;
 
-  if (data.focused === false) {
+  // Reset styles
+  li.style.textDecoration = "none";
+  li.style.textDecorationColor = "";
+  li.style.textDecorationStyle = "";
+  li.style.textDecorationThickness = "";
+
+  if (data.focused === false && game.settings.get(moduleNamespace, "enableFocusTracking")) {
     li.style.textDecoration = "line-through";
-    li.style.textDecorationStyle = "solid";
-  } else if (data.inactive === true) {
+    li.style.textDecorationStyle = game.settings.get(moduleNamespace, "focusLineStyle");
+    li.style.textDecorationColor = game.settings.get(moduleNamespace, "focusLineColor");
+    li.style.textDecorationThickness = `${game.settings.get(moduleNamespace, "lineThickness")}px`;
+  } else if (data.inactive === true && game.settings.get(moduleNamespace, "enableInactivityTracking")) {
     li.style.textDecoration = "line-through";
-    li.style.textDecorationStyle = "dotted";
-  } else {
-    li.style.textDecoration = "none";
+    li.style.textDecorationStyle = game.settings.get(moduleNamespace, "inactivityLineStyle");
+    li.style.textDecorationColor = game.settings.get(moduleNamespace, "inactivityLineColor");
+    li.style.textDecorationThickness = `${game.settings.get(moduleNamespace, "lineThickness")}px`;
   }
 }
 
@@ -69,7 +138,7 @@ Hooks.once("ready", () => {
         userId: game.user.id,
         type: "status-update",
         focused: document.hasFocus(),
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
     };
 
@@ -85,19 +154,19 @@ Hooks.once("ready", () => {
         lastInputTime = Date.now();
       };
 
-      ["mousemove", "keydown", "mousedown", "touchstart"].forEach(event => {
+      ["mousemove", "keydown", "mousedown", "touchstart"].forEach((event) => {
         window.addEventListener(event, activityHandler);
       });
 
       setInterval(() => {
         const threshold = game.settings.get(moduleNamespace, "inactivityThreshold") * 1000;
         const now = Date.now();
-        const inactive = (now - lastInputTime) > threshold;
+        const inactive = now - lastInputTime > threshold;
 
         game.socket.emit(`module.${moduleNamespace}`, {
           userId: game.user.id,
           type: "inactivity-status",
-          inactive
+          inactive,
         });
       }, 5000);
     }
@@ -109,7 +178,7 @@ Hooks.once("ready", () => {
           userId: game.user.id,
           type: "ping-response",
           timestamp: data.timestamp,
-          from: data.from
+          from: data.from,
         });
       }
     });
@@ -118,7 +187,7 @@ Hooks.once("ready", () => {
   if (isGM) {
     // Ping loop
     setInterval(() => {
-      game.users.forEach(user => {
+      game.users.forEach((user) => {
         if (user.active && user.id !== game.user.id) {
           const timestamp = Date.now();
           latencyData[user.id] = latencyData[user.id] || {};
@@ -127,7 +196,7 @@ Hooks.once("ready", () => {
             type: "ping-request",
             from: game.user.id,
             timestamp,
-            userId: user.id
+            userId: user.id,
           });
         }
       });
