@@ -1,14 +1,14 @@
 {
-  "id": "latency-tracker",
-  "name": "latency-tracker",
-  "title": "Latency Tracker",
-  "description": "Shows the latency of connected players.",
+  "id": "player-status-tracker",
+  "name": "player-status-tracker",
+  "title": "Player Status Tracker",
+  "description": "Tracks player latency, tab focus, and inactivity status with visual indicators for GMs.",
   "version": "1.0.0",
   "author": "Celstra",
   "minimumCoreVersion": "13",
   "compatibleCoreVersion": "13",
-  "scripts": ["scripts/latency-tracker.js"],
+  "scripts": ["scripts/player-status-tracker.js"],
   "socket": true,
-  "manifest": "https://raw.githubusercontent.com/Celstra/foundry-latency/main/module.json",
-  "download": "https://github.com/Celstra/foundry-latency/archive/refs/heads/main.zip"
+  "manifest": "https://raw.githubusercontent.com/Celstra/player-status-tracker/main/module.json",
+  "download": "https://github.com/Celstra/player-status-tracker/archive/refs/heads/main.zip"
 }
