@@ -10,5 +10,5 @@
   "scripts": ["scripts/player-status-tracker.js"],
   "socket": true,
   "manifest": "https://raw.githubusercontent.com/Celstra/player-status-tracker/main/module.json",
-  "download": "https://github.com/Celstra/player-status-tracker/archive/refs/heads/main.zip"
+  "download": "https://github.com/Celstra/player-status-tracker/releases/download/v1.0.0/player-status-tracker-v1.0.0.zip"
 }
