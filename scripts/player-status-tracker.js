@@ -1,5 +1,5 @@
 Hooks.once("init", () => {
-  game.settings.register("latency-tracker", "enableInactivityTracking", {
+  game.settings.register("player-status-tracker", "enableInactivityTracking", {
     name: "Enable Inactivity Tracking",
     hint: "Track players who are idle (no mouse/keyboard input) for a period of time.",
     scope: "world",
@@ -8,7 +8,7 @@ Hooks.once("init", () => {
     default: true,
   });
 
-  game.settings.register("latency-tracker", "inactivityThreshold", {
+  game.settings.register("player-status-tracker", "inactivityThreshold", {
     name: "Inactivity Timeout (seconds)",
     hint: "How many seconds without input before a user is marked inactive.",
     scope: "world",
@@ -17,7 +17,7 @@ Hooks.once("init", () => {
     default: 60,
   });
 
-  game.settings.register("latency-tracker", "enableFocusTracking", {
+  game.settings.register("player-status-tracker", "enableFocusTracking", {
     name: "Enable Focus Tracking",
     hint: "Detect if a user switches tabs or minimizes the window.",
     scope: "world",
@@ -26,7 +26,7 @@ Hooks.once("init", () => {
     default: true,
   });
 
-  game.settings.register("latency-tracker", "focusLineStyle", {
+  game.settings.register("player-status-tracker", "focusLineStyle", {
     name: "Focus Lost Line Style",
     hint: "Line style used to indicate a tab switch or minimize (focus lost).",
     scope: "world",
@@ -40,7 +40,7 @@ Hooks.once("init", () => {
     default: "solid",
   });
 
-  game.settings.register("latency-tracker", "focusLineColor", {
+  game.settings.register("player-status-tracker", "focusLineColor", {
     name: "Focus Lost Line Color",
     hint: "Line color used to indicate a tab switch or minimize (focus lost).",
     scope: "world",
@@ -49,7 +49,7 @@ Hooks.once("init", () => {
     default: "#ff9900",
   });
 
-  game.settings.register("latency-tracker", "inactivityLineStyle", {
+  game.settings.register("player-status-tracker", "inactivityLineStyle", {
     name: "Inactivity Line Style",
     hint: "Line style used to indicate inactivity (no input).",
     scope: "world",
@@ -63,7 +63,7 @@ Hooks.once("init", () => {
     default: "dotted",
   });
 
-  game.settings.register("latency-tracker", "inactivityLineColor", {
+  game.settings.register("player-status-tracker", "inactivityLineColor", {
     name: "Inactivity Line Color",
     hint: "Line color used to indicate inactivity (no input).",
     scope: "world",
@@ -72,7 +72,7 @@ Hooks.once("init", () => {
     default: "#ff4444",
   });
 
-  game.settings.register("latency-tracker", "lineThickness", {
+  game.settings.register("player-status-tracker", "lineThickness", {
     name: "Line Thickness (px)",
     hint: "Thickness of the line-through indicating focus or inactivity.",
     scope: "world",
