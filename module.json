@@ -1,14 +1,12 @@
 {
   "name": "latency-tracker",
   "title": "Latency Tracker",
-  "description": "Shows the latency of connected players.",
+  "description": "Shows the latency of connected players next to their names.",
   "version": "1.0.0",
   "minimumCoreVersion": "13",
+  "compatibleCoreVersion": "13",
   "author": "Your Name",
   "scripts": ["scripts/latency-tracker.js"],
-  "esmodules": [],
-  "styles": [],
-  "socket": false,
-  "manifest": "https://yourdomain.com/foundry-latency/module.json",
-  "download": "https://yourdomain.com/foundry-latency/foundry-latency.zip"
+  "manifest": "https://raw.githubusercontent.com/Celstra/foundry-latency/main/module.json",
+  "download": "https://github.com/Celstra/foundry-latency/archive/refs/heads/main.zip"
 }
